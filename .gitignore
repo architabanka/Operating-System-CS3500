@@ -1,0 +1,33 @@
+# Build artifacts
+*.o
+*.d
+*.elf
+*.map
+*.s
+kernel/kernel
+mkfs/mkfs
+fs.img
+fs.img.bk
+xv6.out
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Archives / submission zips
+*.zip
+
+# Editor
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Grader outputs
+grade-results.json

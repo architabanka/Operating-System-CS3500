@@ -1,0 +1,91 @@
+2. $ fsinfo README
+superblock: size 200000 nblocks 199328 ninodes 200 nlog 241
+            logstart 2 inodestart 243 bmapstart 256 refstart 281
+
+inode 2: type 2 nlink 1 size 2441
+  addrs[0] = 673
+  addrs[1] = 674
+  addrs[2] = 675
+  addrs[3] = 0
+  addrs[4] = 0
+  addrs[5] = 0
+  addrs[6] = 0
+  addrs[7] = 0
+  addrs[8] = 0
+  addrs[9] = 0
+  addrs[10] = 0
+  addrs[11] = 0
+  indirect = 0
+
+2.1 
+- size (200000): Total number of blocks in the entire disk image. Set by mkfs to FSSIZE. Used by the kernel to check valid block bounds across disk operations.
+- nblocks (199328): Number of data blocks available for file storage. Set by mkfs by subtracting all metadata/overhead blocks (boot block, superblock, log, inodes, bitmap, refcounts) from total size. Used by balloc() to bound data block allocation searches.
+- ninodes (200): Total number of inodes in the file system table. Set by mkfs to NINODES. Used by ialloc() and iget() to bound inode array searches.
+- nlog (241): Number of blocks reserved for the transaction log. Set by mkfs to LOGSIZE + 1 (header + log blocks). Used by log.c (initlog()) to allocate and manage transaction logging.
+- logstart (2): Starting block number of the transaction log (located immediately after boot block 0 and superblock 1). Set by mkfs. Used by initlog() to locate the log on disk.
+- inodestart (243): Starting block number of the on-disk inode table (logstart + nlog = 2 + 241 = 243). Set by mkfs. Used by the IBLOCK() macro in kernel/fs.h to compute the disk block containing a given inode number.
+- bmapstart (256): Starting block number of the free-block bitmap. Set by mkfs (immediately following the inode blocks). Used by the BBLOCK() macro in kernel/fs.h to locate bitmap blocks during balloc() and bfree().
+- refstart (281): Starting block number of the block reference count area. Set by mkfs (following the bitmap area). Used by reference-counting routines managing disk block sharing.
+The kernel reads the superblock in readsb() located in kernel/fs.c during file system initialization (called via iinit()). readsb() calls bread(dev, 1) to read block 1 (the superblock) from disk into memory.
+
+
+2.2 Size and allocated data blocks: A file's size is its exact byte length. Blocks are allocated in BSIZE (1024-byte) units, so the required data block count is ceil(size / BSIZE). For README (2441 bytes), ceil(2441 / 1024) = 3 blocks.
+Counting nonzero inode entries alone fails for larger files because inode addrs[] entries only hold direct block numbers and one indirect block pointer. For larger files using indirect blocks, addrs[NDIRECT] points to an indirect index block 
+on disk rather than directly to a data block. Counting non-zero entries in the inode addrs[] array would count the indirect index block as 1 entry instead of counting the 256 actual data blocks referenced inside it.
+When balloc() allocates a new block it zeroes out the block buffer memory using memset() before returning it, ensuring unused trailing bytes in the final block are zeroed.
+No. In kernel/fs.c, readi() explicitly checks read offsets against ip->size. If off>=ip->size, it returns 0(EOF), if off+n>ip->size, it truncates the read length to ip->size-off.
+
+
+2.3 Offset 1500 - block index = floor(1500/1024)=1, offset within block=1500 mod 1024=476
+    Inode mapping from fsinfo: addrs[1] = 674
+    Therefore, disk block 674 holds byte offset 1500 (at byte offset 476 within block 674).
+
+    README has size = 2441 bytes,so offset 300000 is beyond EOF. Also the starter layout maximum file size is (12+256)*1024=274432 bytes. Offset 300000 requires addressing up to byte 300001 
+    which exceeds the maximum addressable file capacity of the starter layout.
+    To resolve offset 300000, the file size must be atleast 300001 bytes and the inode requires a doubly-indirect block pointer (its child singly-indirect block). Block index floor(300000/1024) = 292 
+    falls into the doubly-indirect block region (block index 292-12-256=24 within the doubly-indirect tree).
+
+2.4 BSIZE = 1024 bytes, NDIRECT = 12
+   NINDIRECT=BSIZE/sizeof(uint)=1024/4=256
+   
+   MAXFILE(in blocks)=NDIRECT+NINDIRECT = 12+256 = 268 blocks
+   Maximum size in bytes = MAXFILE * BSIZE = 268 * 1024 = 274432 bytes
+
+2.5 The last entry addrs[NDIRECT] (printed as 'indirect') points to an on-disk indirect block containing an array of 256 uint block numbers pointing to additional data blocks.
+Blocks are allocated dynamically on-demand when files grow (via bmap calling balloc). balloc() searches the free bitmap for available slots. 
+Concurrent file creations, writes and deletions result in newly allocated blocks being assigned to non-adjacent free slots across the disk.
+
+4.
+4.1 Data blocks = 65803 blocks, pointer blocks = 1 (singly-indirect)+1(doubly-indirect root)+256 (singly-indirect child blocks)=258
+   total allocated blocks=65803+258=66061 
+   fraction = 258/66061 ≈ 0.0039055 
+
+4.2 BSIZE = 4096 (Block addresses = 4 bytes):
+   4096/4=1024 pointers/block
+   direct data blocks=11
+   singly-indirect data blocks=1024
+   doubly-indirect data blocks=1024*1024=1048576
+   total data blocks = 11+1024+1048576 = 10,49,611
+   
+   Pointer blocks needed= 1 singly-indirect block, 1 doubly-indirect root block, 1,024 singly-indirect child blocks = 1026 
+   
+   total allocated blocks = 10,49,611 + 1026 = 1,00,50,637 
+   fraction holding pointers = 1026/1,00,50,637≈0.00097655 
+
+4.3 Increasing BSIZE to 4096 bytes reduces the pointer overhead fraction from ~0.3906% to ~0.0977% (roughly a 4x decrease in relative metadata overhead). 
+Because each 4 KB block can hold 4 times as many pointers (1024 vs 256), fewer pointer blocks are required to address a significantly larger number of data blocks.
+
+5.
+5.1 holding a symlink's inode lock while resolving its target pathname via namei() can lead to deadlocks. If a symlink points to itself or if two symlinks point to each other in a loop (A -> B, B -> A) 
+attempting to acquire the lock of the next symlink or re-acquire the lock of an already locked inode in the chain will cause a thread to block on a lock, it or a concurrent caller holds, deadlocking the system. 
+Also holding locks across pathname traversals blocks concurrent file system operations on those inodes.
+
+My implementation reads and validates the target string from the symlink inode into a local buffer and then releases the symlink's inode lock using iunlockput(ip) before calling namei() to look up the target path. 
+
+5.2 a) when opening 'a/first' (which stores '../b/second'), the containing directory of 'first' is 'a/'. The relative target '../b/second' is appended to 'a/', forming the combined path 'a/../b/second'. 
+'namei()' looks up this path starting from the root directory '/', resolving 'a/..' to root '/', then entering directory 'b/'.
+b) The lookup resolves to 'b/second', which is a symlink storing 'file'. The containing directory of 'second' is 'b/'. The relative target 'file' is appended to 'b/', forming 'b/file'. 
+'namei()' resolves 'b/file', which points to the final file.
+
+(a) uses directory 'a/' (the directory containing 'first')
+(b) uses directory 'b/' (the directory containing 'second')

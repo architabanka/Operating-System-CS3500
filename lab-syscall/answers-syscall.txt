@@ -1,0 +1,35 @@
+1. usertrap() function called syscall().
+
+2. In user/init.c the first system call made is open(), register a7 conatins the number of the system call made.
+According to syscall.h, the number for open is 15. 
+The command (gdb) p /x p->trapframe->a7 gives 0xf meaning 15.
+
+3. (gdb)p /x $sstatus printed 0x200000022, the spp bit (bit 8) stores the previous privelege since the bit is 0, the previous privelege mode is User Mode.
+
+4.
+
+xv6 kernel is booting
+
+hart 1 starting
+hart 2 starting
+scause=0xd sepc=0x80001ca8 stval=0x0
+panic: kerneltrap
+
+5. The sepc value given is 0x80001ca8
+    num = *(int*)0;
+    80001ca8:	00002683          	lw	a3,0(zero) # 0 <_entry-0x80000000>
+
+Assembly instruction kernel is panicking at lw a3,0(zero). a3 contains the value of variable num.
+
+6. Yes. it's the same.
+
+7. The kernel crashes because num = *(int *)0 attempts to read from virtual address 0. 
+Address 0 is not mapped in the kernel address space (as can be inferred from the fig), so the load instruction at sepc = 0x80001ca8 causes a page fault. 
+The value scause = 0xd confirms that the exception is a load page fault (as per riscv specification), while stval = 0x0 confirms that the faulting address was 0. 
+The riscv trap mechanism transfers control to the kernel's trap handler, which detects the unexpected kernel exception and calls panic("kerneltrap").
+
+8. p p->name
+gives the name of the process as "init" which means the init user program was runnign when the kernel panicked.
+
+p p->pid
+gives the process id as 1

@@ -1,0 +1,10 @@
+1. When a trap on RISC-V returns to user space, what determines the instruction address at which user-space code resumes execution?
+
+When a trap returns to user space, the value stored in epc (exception program counter) field in the process's trapframe determines 
+the instruction address at which execution resumes. 
+
+2. What registers do you need to save and restore to resume the interrupted code correctly?
+
+We need to save and restore all the user registers including epc, sp, ra, argument registers (a0–a7), temporary registers (t0–t6) and saved registers (s0–s11). 
+In xv6, this can be done by saving and restoring the entire trapframe. 
+This ensures program can resume execution from where it was interrupted.

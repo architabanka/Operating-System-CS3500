@@ -1,8 +1,6 @@
-# xv6 OS Labs — MIT 6.1810 / CS3500
+# xv6 OS Labs
 
-A collection of kernel-level programming labs completed as part of **CS3500 (Operating System Engineering)** at IIT Madras, based on the [MIT 6.1810](https://pdos.csail.mit.edu/6.1810/2025/overview.html) curriculum.
-
-All labs are implemented in **C** on the **xv6-RISC-V** teaching OS, running on a QEMU-emulated RISC-V machine.
+A collection of kernel-level programming labs done as part of **CS3500 (Operating System Engineering)**, based on the [MIT 6.1810](https://pdos.csail.mit.edu/6.1810/2025/overview.html) curriculum.
 
 ---
 
@@ -24,7 +22,7 @@ All labs are implemented in **C** on the **xv6-RISC-V** teaching OS, running on 
 
 ### Lab 1 — Unix Utilities (`lab-util`)
 Implemented several POSIX-style user-space utilities from scratch inside the xv6 shell:
-- `sleep` — pause for a given number of ticks
+- `sleep` - pause for a given number of ticks
 - `pingpong` — bidirectional pipe communication between parent and child
 - `primes` — concurrent prime sieve using a pipeline of processes
 - `find` — recursive directory search
@@ -78,18 +76,4 @@ To run the autograder:
 make grade
 ```
 
----
 
-## Tech Stack
-
-- **Language**: C, RISC-V Assembly
-- **OS**: xv6-RISC-V (MIT teaching OS)
-- **Emulator**: QEMU (`qemu-system-riscv64`)
-- **Toolchain**: `riscv64-unknown-elf-gcc`
-- **Platform**: Linux / macOS
-
----
-
-## Academic Integrity
-
-This repository is shared for **portfolio and learning purposes**. If you are currently enrolled in CS3500 or MIT 6.1810, please do your own work and consult your institution's academic honesty policy before reading solution code.

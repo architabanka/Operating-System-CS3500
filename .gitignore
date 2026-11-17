@@ -4,11 +4,16 @@
 *.elf
 *.map
 *.s
+*.asm
+*.sym
 kernel/kernel
 mkfs/mkfs
 fs.img
 fs.img.bk
 xv6.out
+
+# Compiled xv6 user binaries (no extension, prefixed with _)
+user/_*
 
 # Python
 __pycache__/
